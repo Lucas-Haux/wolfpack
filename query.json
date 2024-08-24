@@ -1,0 +1,151 @@
+{
+  "aggs": {
+    "all": {
+      "aggregations": {
+        "package_attr_set": {
+          "terms": {
+            "field": "package_attr_set",
+            "size": 20
+          }
+        },
+        "package_license_set": {
+          "terms": {
+            "field": "package_license_set",
+            "size": 20
+          }
+        },
+        "package_maintainers_set": {
+          "terms": {
+            "field": "package_maintainers_set",
+            "size": 20
+          }
+        },
+        "package_platforms": {
+          "terms": {
+            "field": "package_platforms",
+            "size": 20
+          }
+        }
+      },
+      "global": {}
+    },
+    "package_attr_set": {
+      "terms": {
+        "field": "package_attr_set",
+        "size": 20
+      }
+    },
+    "package_license_set": {
+      "terms": {
+        "field": "package_license_set",
+        "size": 20
+      }
+    },
+    "package_maintainers_set": {
+      "terms": {
+        "field": "package_maintainers_set",
+        "size": 20
+      }
+    },
+    "package_platforms": {
+      "terms": {
+        "field": "package_platforms",
+        "size": 20
+      }
+    }
+  },
+  "from": 0,
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "type": {
+              "_name": "filter_packages",
+              "value": "package"
+            }
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "bool": {
+                  "should": []
+                }
+              },
+              {
+                "bool": {
+                  "should": []
+                }
+              },
+              {
+                "bool": {
+                  "should": []
+                }
+              },
+              {
+                "bool": {
+                  "should": []
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "must": [
+        {
+          "dis_max": {
+            "queries": [
+              {
+                "multi_match": {
+                  "_name": "multi_match_minecraft",
+                  "analyzer": "whitespace",
+                  "auto_generate_synonyms_phrase_query": false,
+                  "fields": [
+                    "package_attr_name^9",
+                    "package_attr_name.*^5.3999999999999995",
+                    "package_programs^9",
+                    "package_programs.*^5.3999999999999995",
+                    "package_pname^6",
+                    "package_pname.*^3.5999999999999996",
+                    "package_description^1.3",
+                    "package_description.*^0.78",
+                    "package_longDescription^1",
+                    "package_longDescription.*^0.6",
+                    "flake_name^0.5",
+                    "flake_name.*^0.3"
+                  ],
+                  "operator": "and",
+                  "query": "tor",
+                  "type": "cross_fields"
+                }
+              },
+              {
+                "wildcard": {
+                  "package_attr_name": {
+                    "case_insensitive": true,
+                    "value": "*minecraft*"
+                  }
+                }
+              }
+            ],
+            "tie_breaker": 0.7
+          }
+        }
+      ]
+    }
+  },
+  "size": 9,
+  "sort": [
+    {
+      "_score": "desc"
+    },
+    {
+      "package_attr_name": "desc"
+    },
+    {
+      "package_pversion": "asc"
+    }
+  ]
+}
