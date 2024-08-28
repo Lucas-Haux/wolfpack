@@ -1,11 +1,11 @@
 use clap::Parser;
 use reqwest::Client;
-use serde_json::Value;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::error::Error;
 use std::fs;
-use std::io;
- 
+use std::fs::{File, OpenOptions, read_to_string, write};
+use std::io::{self, BufReader, Read, Write, prelude::*};
+
 #[derive(Parser)]
 #[clap(author, version)]
 struct Args {
@@ -19,13 +19,48 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-
     let result = match args.wolfpack.as_str() {
         "s" => query_search(args.query),
+        //"i" => install(),
         _ => panic!("idk")
     };
+    let testpackage = String::from("testpackage");
+    write_to_file(testpackage);
 }
 
+fn write_to_file(packagename: String) -> std::io::Result<()> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("config.nix")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut new_contents = String::new();
+
+    let mut line_number = 0;
+    for line in contents.lines() {
+        line_number += 1;
+        new_contents.push_str(line);
+        new_contents.push('\n');
+
+        if line.contains("environment.systemPackages") {
+            println!("Test passed on line: {}", line_number);
+            new_contents.push_str(&format!("  {}\n", packagename));
+
+            if line.contains("with pkgs") {
+                println!("pkgs");
+            }
+        }
+    }
+    // save to file
+    let mut file = OpenOptions::new().write(true).truncate(true).open("config.nix")?;
+    file.write_all(new_contents.as_bytes())?;
+
+    println!("done");
+    Ok(())
+}
+
+ 
 #[tokio::main]
 async fn query_search(search: String) -> Result<(), Box<dyn Error>> {
     let client = Client::new();
@@ -48,19 +83,18 @@ async fn query_search(search: String) -> Result<(), Box<dyn Error>> {
     // Get the raw JSON response as a Value
     let response_json: Value = response.json().await?;
     
-    // Extract and print `package_pname` from the response
+    // Extract and print the packagename from the response
     if let Some(hits) = response_json["hits"]["hits"].as_array() {
         for hit in hits {
             if let Some(_score) = hit.get("_score") {
                 println!("Package score: {}", _score);
             }
-            match hit["_source"].get("package_attr_name") {
-                Some(package_attr_name) => println!("Package Name: {}", package_attr_name),
-                None => continue,
+            if let Some(package_attr_name) = hit["_source"].get("package_attr_name") {
+                println!("Package name: {}", package_attr_name);
             }
         }
     } else {
-            eprintln!("Unexpected response format.");
+        eprintln!("Unexpected response format.");
     };
     
     Ok(())

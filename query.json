@@ -117,7 +117,7 @@
                     "flake_name.*^0.3"
                   ],
                   "operator": "and",
-                  "query": "tor",
+                  "query": "zen",
                   "type": "cross_fields"
                 }
               },
