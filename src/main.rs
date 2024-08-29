@@ -3,8 +3,9 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use std::error::Error;
 use std::fs;
-use std::fs::{File, OpenOptions, read_to_string, write};
-use std::io::{self, BufReader, Read, Write, prelude::*};
+use std::fs::{OpenOptions};
+use std::io::{Read, Write};
+use inquire::{error::InquireError, Select};
 
 #[derive(Parser)]
 #[clap(author, version)]
@@ -19,14 +20,35 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let result = match args.wolfpack.as_str() {
+    let _result = match args.wolfpack.as_str() {
         "s" => query_search(args.query),
-        //"i" => install(),
+        "i" => install(args.query),
         _ => panic!("idk")
     };
-    let testpackage = String::from("testpackage");
-    write_to_file(testpackage);
+
 }
+
+fn install(search: String) -> Result<Vec<String>, Box<dyn Error>> {
+    //search
+    let options = query_search(search);
+    //Convert to &str
+    let strings = options.expect("REASON");
+    let string_refs: Vec<&str> = strings.iter().map(|s| s.as_str()).collect();
+    //inquire select
+    let mut answer = String::new();
+    let ans: Result<&str, InquireError> = Select::new("Here are the results, which package do you want to install", string_refs).prompt();
+    match ans {
+        Ok(choice) => { 
+            println!("Installing {}", choice);
+            answer = choice.to_string();
+        },
+        Err(_) => println!("There was an error, please try again"),
+    }
+    println!("answer: {}", answer);
+    write_to_file(answer);
+    let test = Vec::new();
+    Ok(test)
+} 
 
 fn write_to_file(packagename: String) -> std::io::Result<()> {
     let mut file = OpenOptions::new()
@@ -62,7 +84,7 @@ fn write_to_file(packagename: String) -> std::io::Result<()> {
 
  
 #[tokio::main]
-async fn query_search(search: String) -> Result<(), Box<dyn Error>> {
+async fn query_search(search: String) -> Result<Vec<String>, Box<dyn Error>> {
     let client = Client::new();
     let url = "https://search.nixos.org/backend/latest-42-nixos-24.05/_search";
     let json_data = fs::read_to_string("query.json")?;
@@ -83,20 +105,22 @@ async fn query_search(search: String) -> Result<(), Box<dyn Error>> {
     // Get the raw JSON response as a Value
     let response_json: Value = response.json().await?;
     
+    let mut options: Vec<&str> = Vec::new();
     // Extract and print the packagename from the response
     if let Some(hits) = response_json["hits"]["hits"].as_array() {
         for hit in hits {
-            if let Some(_score) = hit.get("_score") {
-                println!("Package score: {}", _score);
-            }
-            if let Some(package_attr_name) = hit["_source"].get("package_attr_name") {
+            if let Some(package_attr_name) = hit["_source"].get("package_attr_name").and_then(|v| v.as_str()) {
                 println!("Package name: {}", package_attr_name);
+                options.push(package_attr_name);
+            }
+            if let Some(package_description) = hit["_source"].get("package_description") {
+                println!("{}\n", package_description);
             }
         }
     } else {
         eprintln!("Unexpected response format.");
     };
-    
-    Ok(())
+    let string_options: Vec<String> = options.iter().map(|&s| s.to_string()).collect();
+    Ok(string_options)
 }
 

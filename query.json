@@ -117,7 +117,7 @@
                     "flake_name.*^0.3"
                   ],
                   "operator": "and",
-                  "query": "zen",
+                  "query": "minecraft",
                   "type": "cross_fields"
                 }
               },
