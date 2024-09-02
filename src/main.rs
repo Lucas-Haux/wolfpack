@@ -22,34 +22,43 @@ fn main() {
     let args = Args::parse();
     let _result = match args.wolfpack.as_str() {
         "s" => query_search(args.query),
-        "i" => install(args.query),
+        "i" => install(args.query, false),
+        "si" => install(args.query, true),
         _ => panic!("idk")
     };
 
 }
 
-fn install(search: String) -> Result<Vec<String>, Box<dyn Error>> {
-    //search
-    let options = query_search(search);
-    //Convert to &str
-    let strings = options.expect("REASON");
-    let string_refs: Vec<&str> = strings.iter().map(|s| s.as_str()).collect();
-    //inquire select
+// search and add package to file
+fn install(search: String, search_before_install: bool) -> Result<Vec<String>, Box<dyn Error>> {
     let mut answer = String::new();
-    let ans: Result<&str, InquireError> = Select::new("Here are the results, which package do you want to install", string_refs).prompt();
-    match ans {
-        Ok(choice) => { 
-            println!("Installing {}", choice);
-            answer = choice.to_string();
-        },
-        Err(_) => println!("There was an error, please try again"),
-    }
-    println!("answer: {}", answer);
+    // seach install or just install
+    if search_before_install == true {
+        //search for query
+        let options = query_search(search);
+        //Convert to &str
+        let strings = options.expect("REASON");
+        let string_refs: Vec<&str> = strings.iter().map(|s| s.as_str()).collect();
+        //inquire select
+        let ans: Result<&str, InquireError> = Select::new("Here are the results, which package do you want to install", string_refs).prompt();
+        match ans {
+            Ok(choice) => { 
+                println!("Installing {}", choice);
+                answer = choice.to_string();
+            },
+            Err(_) => println!("There was an error, please try again"),
+        }
+        println!("answer: {}", answer);
+    } else {
+        answer = search;
+    };
+
     write_to_file(answer);
     let test = Vec::new();
     Ok(test)
 } 
 
+// write to file
 fn write_to_file(packagename: String) -> std::io::Result<()> {
     let mut file = OpenOptions::new()
         .read(true)
@@ -83,6 +92,7 @@ fn write_to_file(packagename: String) -> std::io::Result<()> {
 }
 
  
+// Search
 #[tokio::main]
 async fn query_search(search: String) -> Result<Vec<String>, Box<dyn Error>> {
     let client = Client::new();
