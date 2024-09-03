@@ -4,6 +4,15 @@ adfasdfsdfsd
 adfasdfsdfsd
 feere
   environment.systemPackages = [
+  gnomeExtensions.zen
+  gnomeExtensions.zen
+  
+  zenith
+  
+  gnome.zenity
+  
+  
+  zen111
   zenmonitor
   zen
   zen
@@ -13,6 +22,15 @@ feere
   ];
 
   environment.systemPackages = with pkgs; [
+  gnomeExtensions.zen
+  gnomeExtensions.zen
+  
+  zenith
+  
+  gnome.zenity
+  
+  
+  zen111
   zenmonitor
   zen
   zen

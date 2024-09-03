@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{command, Arg, ArgGroup, Command, ValueHint};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::error::Error;
@@ -7,26 +7,45 @@ use std::fs::{OpenOptions};
 use std::io::{Read, Write};
 use inquire::{error::InquireError, Select};
 
-#[derive(Parser)]
-#[clap(author, version)]
-struct Args {
-    #[clap(short, long, value_parser)]
-    wolfpack: String,
-
-    #[clap(value_parser)]
-    query: String,
-
-}
-
 fn main() {
-    let args = Args::parse();
-    let _result = match args.wolfpack.as_str() {
-        "s" => query_search(args.query),
-        "i" => install(args.query, false),
-        "si" => install(args.query, true),
-        _ => panic!("idk")
-    };
+    let match_result = command!()
+        .about("wolfpack")
+        .subcommand(
+            Command::new("packages") // subcommands for packages
+                .arg(
+                    Arg::new("search") // search for package
+                        .short('s')
+                        .long("search")
+                        .help("Searches for nix package based on the name")
+                )
+                .arg(
+                    Arg::new("install") // install package
+                        .short('i')
+                        .long("install")
+                        .help("Writes package name to config file")
+                )
+                .arg(
+                    Arg::new("search-install") // search and installs
+                        .short('x')
+                        .long("search-install")
+                        .aliases(["si", "is"])
+                        .help("Searches packages and installs selected package")
+                )
+        )
+        .get_matches();
 
+    // check if user used subcommand packages
+    if let Some(sub_matches) = match_result.subcommand_matches("packages") {
+        if let Some(search_value) = sub_matches.get_one::<String>("search") {
+            query_search(search_value.to_string());
+        } 
+        if let Some(search_value) = sub_matches.get_one::<String>("install") {
+            install(search_value.to_string(), false);
+        } 
+        if let Some(search_value) = sub_matches.get_one::<String>("search-install") {
+            install(search_value.to_string(), true);
+        } 
+    }
 }
 
 // search and add package to file
@@ -121,7 +140,7 @@ async fn query_search(search: String) -> Result<Vec<String>, Box<dyn Error>> {
         for hit in hits {
             if let Some(package_attr_name) = hit["_source"].get("package_attr_name").and_then(|v| v.as_str()) {
                 println!("Package name: {}", package_attr_name);
-                options.push(package_attr_name);
+                options.push(package_attr_name.trim());
             }
             if let Some(package_description) = hit["_source"].get("package_description") {
                 println!("{}\n", package_description);
