@@ -1,0 +1,6 @@
+[query]
+length = 10
+url = "https://search.nixos.org/backend/latest-42-nixos-24.05/_search"
+
+[nix]
+location = "/home/luke/Projects/wolfpack/config.nix"

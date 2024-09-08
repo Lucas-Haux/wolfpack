@@ -1,62 +1,77 @@
+mod args;
+
+use args::build_cli;
 use clap::{command, Arg, ArgGroup, Command, ValueHint};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::error::Error;
 use std::fs;
-use std::fs::{OpenOptions};
+use std::fs::{OpenOptions, File};
 use std::io::{Read, Write};
+use std::path::Path;
 use inquire::{error::InquireError, Select};
+use serde::Deserialize;
+
+// Structs for config.toml files
+#[derive(Deserialize, Debug)]
+struct Config {
+    query: QueryConfig, 
+    nix: NixConfig,
+}
+
+#[derive(Deserialize, Debug)]
+struct QueryConfig {
+    length: i8,
+    url : String,
+}
+
+#[derive(Deserialize, Debug)]
+struct NixConfig {
+    location: String,
+}
 
 fn main() {
-    let match_result = command!()
-        .about("wolfpack")
-        .subcommand(
-            Command::new("packages") // subcommands for packages
-                .arg(
-                    Arg::new("search") // search for package
-                        .short('s')
-                        .long("search")
-                        .help("Searches for nix package based on the name")
-                )
-                .arg(
-                    Arg::new("install") // install package
-                        .short('i')
-                        .long("install")
-                        .help("Writes package name to config file")
-                )
-                .arg(
-                    Arg::new("search-install") // search and installs
-                        .short('x')
-                        .long("search-install")
-                        .aliases(["si", "is"])
-                        .help("Searches packages and installs selected package")
-                )
-        )
-        .get_matches();
+    let mut profile = String::from("profile_configs/default.toml"); 
+    // command arguments
+    let match_result = build_cli().get_matches();
 
     // check if user used subcommand packages
     if let Some(sub_matches) = match_result.subcommand_matches("packages") {
-        if let Some(search_value) = sub_matches.get_one::<String>("search") {
-            query_search(search_value.to_string());
+        if let Some(value) = sub_matches.get_one::<String>("profile-selection") {
+            profile = value.to_string(); //defaults to default.toml
+            profile.push_str(".toml");
+            profile.insert_str(0, "profile_configs/"); // todo! change to sysytem profile location 
+        }
+        let config_content = fs::read_to_string(profile.clone()).expect("Unable to read file");
+        // Parse the content
+        let config: Config = toml::from_str(&config_content).expect("Unable to parse");
+
+        if let Some(value) = sub_matches.get_one::<String>("search") {
+            query_search(value.to_string(), &config);
         } 
-        if let Some(search_value) = sub_matches.get_one::<String>("install") {
-            install(search_value.to_string(), false);
+        if let Some(value) = sub_matches.get_one::<String>("install") {
+            install(value.to_string(), false, &config); // dont search for packages before install
         } 
-        if let Some(search_value) = sub_matches.get_one::<String>("search-install") {
-            install(search_value.to_string(), true);
+        if let Some(value) = sub_matches.get_one::<String>("search-install") {
+            install(value.to_string(), true, &config); // search for packages before install
+        } 
+        if let Some(value) = sub_matches.get_one::<String>("create") {
+                profile_create(value.to_string());
+        }
+        if let Some(value) = sub_matches.get_one::<String>("list") {
+            profile_list();
         } 
     }
 }
 
 // search and add package to file
-fn install(search: String, search_before_install: bool) -> Result<Vec<String>, Box<dyn Error>> {
+fn install(search: String, search_before_install: bool, profile: &Config)  {
     let mut answer = String::new();
     // seach install or just install
     if search_before_install == true {
-        //search for query
-        let options = query_search(search);
+        let query_answer = query_search(search, &profile);
         //Convert to &str
-        let strings = options.expect("REASON");
+        let strings = query_answer.expect("REASON");
         let string_refs: Vec<&str> = strings.iter().map(|s| s.as_str()).collect();
         //inquire select
         let ans: Result<&str, InquireError> = Select::new("Here are the results, which package do you want to install", string_refs).prompt();
@@ -72,17 +87,15 @@ fn install(search: String, search_before_install: bool) -> Result<Vec<String>, B
         answer = search;
     };
 
-    write_to_file(answer);
-    let test = Vec::new();
-    Ok(test)
+    write_to_file(answer, &profile);
 } 
 
 // write to file
-fn write_to_file(packagename: String) -> std::io::Result<()> {
+fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open("config.nix")?;
+        .open(&profile.nix.location)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     let mut new_contents = String::new();
@@ -98,7 +111,7 @@ fn write_to_file(packagename: String) -> std::io::Result<()> {
             new_contents.push_str(&format!("  {}\n", packagename));
 
             if line.contains("with pkgs") {
-                println!("pkgs");
+                println!("pkgs"); // todo!
             }
         }
     }
@@ -113,14 +126,17 @@ fn write_to_file(packagename: String) -> std::io::Result<()> {
  
 // Search
 #[tokio::main]
-async fn query_search(search: String) -> Result<Vec<String>, Box<dyn Error>> {
+async fn query_search(search: String, profile: &Config) -> Result<Vec<String>, Box<dyn Error>> {
     let client = Client::new();
-    let url = "https://search.nixos.org/backend/latest-42-nixos-24.05/_search";
+    let url = &profile.query.url;
     let json_data = fs::read_to_string("query.json")?;
     let mut query_body: Value = serde_json::from_str(&json_data)?;
 
     // Update the field 
     query_body["query"]["bool"]["must"][0]["dis_max"]["queries"][0]["multi_match"]["query"] = json!(search);
+    query_body["query"]["bool"]["must"][0]["dis_max"]["queries"][0]["multi_match"]["_name"] = json!(format!("multi_match_{}", search));
+    query_body["query"]["bool"]["must"][0]["dis_max"]["queries"][1]["wildcard"]["package_attr_name"]["value"] = json!(format!("*{}*", search)); // doesnt work 
+    query_body["size"] = json!(&profile.query.length);
     fs::write("query.json", serde_json::to_string_pretty(&query_body)?)?;
 
     // Make the request with API key included in the headers
@@ -153,3 +169,21 @@ async fn query_search(search: String) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(string_options)
 }
 
+fn profile_create(mut name: String) {
+    let source_file = "profile_configs/default.toml"; // clones the default.toml when creating a
+                                                      // new config file
+    let filepath = String::from("profile_configs"); // todo! this sould be in the users .config
+                                                    // currently in the local project location
+    name.push_str(".toml");
+    let name_filepath = Path::new(&filepath).join(name);
+    let entries = fs::copy(source_file, name_filepath);
+}
+
+fn profile_list() {
+    let filepath = fs::read_dir("profile_configs").unwrap(); // todo! this hsould be in the users
+                                                             // .config folder not project folder
+
+    for path in filepath {
+        println!("Name: {}", path.unwrap().path().display())
+    }
+}

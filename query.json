@@ -99,9 +99,9 @@
             "queries": [
               {
                 "multi_match": {
-                  "_name": "multi_match_minecraft",
+                  "_name": "multi_match_test",
                   "analyzer": "whitespace",
-                  "auto_generate_synonyms_phrase_query": false,
+                  "auto_generate_synonyms_phrase_query": true,
                   "fields": [
                     "package_attr_name^9",
                     "package_attr_name.*^5.3999999999999995",
@@ -117,7 +117,7 @@
                     "flake_name.*^0.3"
                   ],
                   "operator": "and",
-                  "query": "zen",
+                  "query": "test",
                   "type": "cross_fields"
                 }
               },
@@ -125,7 +125,7 @@
                 "wildcard": {
                   "package_attr_name": {
                     "case_insensitive": true,
-                    "value": "*minecraft*"
+                    "value": "*test*"
                   }
                 }
               }
@@ -136,7 +136,7 @@
       ]
     }
   },
-  "size": 9,
+  "size": 10,
   "sort": [
     {
       "_score": "desc"
