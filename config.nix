@@ -4,6 +4,14 @@ adfasdfsdfsd
 adfasdfsdfsd
 feere
   environment.systemPackages = [
+  test
+  test
+  test
+  test
+  test
+  test
+  test
+  test
   minecraft-server
   blakeisrword
   test
@@ -15,6 +23,14 @@ feere
   ];
 
   environment.systemPackages = with pkgs; [
+  test
+  test
+  test
+  test
+  test
+  test
+  test
+  test
   minecraft-server
   blakeisrword
   test

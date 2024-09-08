@@ -4,3 +4,5 @@ url = "https://search.nixos.org/backend/latest-42-nixos-24.05/_search"
 
 [nix]
 location = "/home/luke/Projects/wolfpack/config.nix"
+rebuildSwitch = true # ask to rebuild after install
+rebuildCommand = "sudo nixos-rebuild switch --flake /home/luke/Flake#desktop"

@@ -11,6 +11,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use inquire::{error::InquireError, Select};
 use serde::Deserialize;
+use dialoguer::Confirm;
+use std::process::Command as OtherCommand;
 
 // Structs for config.toml files
 #[derive(Deserialize, Debug)]
@@ -28,6 +30,8 @@ struct QueryConfig {
 #[derive(Deserialize, Debug)]
 struct NixConfig {
     location: String,
+    rebuildSwitch: bool,
+    rebuildCommand: String,
 }
 
 fn main() {
@@ -56,7 +60,7 @@ fn main() {
             install(value.to_string(), true, &config); // search for packages before install
         } 
         if let Some(value) = sub_matches.get_one::<String>("create") {
-                profile_create(value.to_string());
+            profile_create(value.to_string());
         }
         if let Some(value) = sub_matches.get_one::<String>("list") {
             profile_list();
@@ -88,6 +92,37 @@ fn install(search: String, search_before_install: bool, profile: &Config)  {
     };
 
     write_to_file(answer, &profile);
+
+    // rebuildSwitch
+    if profile.nix.rebuildSwitch == true {
+        let confirmation = Confirm::new()
+            .with_prompt("Do you want to run nixos rebuild switch?")
+            .interact()
+            .unwrap();
+
+        if confirmation == true {
+            println!("Running command defined in your profile");
+            // Get the command arguments from the toml file
+            let args: &Vec<&str> = &profile.nix.rebuildCommand.split_whitespace().collect();
+
+            if let Some((command, arguments)) = args.split_first() {
+                let output = OtherCommand::new(command)
+                    .args(arguments)
+                    .output()
+                    .expect("Failed to execute command");
+
+                println!("Status: {}", output.status);
+
+                // Check if the command was successful
+                if output.status.success() {
+                    println!("Command executed successfully!");
+                } else {
+                    eprintln!("Command failed to execute.");
+                    eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
+                }
+            }
+        } else { println!("Not running nixos rebuild"); }
+    }
 } 
 
 // write to file
