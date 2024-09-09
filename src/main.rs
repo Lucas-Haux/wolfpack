@@ -7,7 +7,8 @@ use serde_json::{json, Value};
 use std::error::Error;
 use std::fs;
 use std::fs::{OpenOptions, File};
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufReader, BufRead};
+use std::io;
 use std::path::Path;
 use inquire::{error::InquireError, Select};
 use serde::Deserialize;
@@ -59,12 +60,18 @@ fn main() {
         if let Some(value) = sub_matches.get_one::<String>("search-install") {
             install(value.to_string(), true, &config); // search for packages before install
         } 
-        if let Some(value) = sub_matches.get_one::<String>("create") {
+        if let Some(value) = sub_matches.get_one::<String>("remove-package") {
+            remove_package(value.to_string(), &config);
+        }
+        if let Some(value) = sub_matches.get_one::<String>("create-profile") {
             profile_create(value.to_string());
         }
-        if let Some(value) = sub_matches.get_one::<String>("list") {
+        if let Some(value) = sub_matches.get_one::<String>("list-profiles") {
             profile_list();
         } 
+        if let Some(value) = sub_matches.get_one::<String>("remove-profile") {
+            profile_remove(value.to_string());
+        }
     }
 }
 
@@ -142,11 +149,21 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
         new_contents.push('\n');
 
         if line.contains("environment.systemPackages") {
-            println!("Test passed on line: {}", line_number);
-            new_contents.push_str(&format!("  {}\n", packagename));
+            // get the amount of spaces on the environment.systemPackages line
+            let leading_spaces = count_leading_spaces(line);
+            let mut spaces = String::new();
+            let mut num = leading_spaces as i16;
+            while num > 0 {
+                spaces.push_str(" ");
+                num -= 1;
+            }
+            spaces.push_str("  "); // add two more spaces then environement.systemPackages line
 
             if line.contains("with pkgs") {
-                println!("pkgs"); // todo!
+                new_contents.push_str(&format!("{}{}\n", spaces, packagename));
+            } else {
+                new_contents.push_str(&format!("{}pkgs.{}\n", spaces, packagename)); //add pkgs. if
+                                                                                     //it needs it
             }
         }
     }
@@ -158,6 +175,11 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
     Ok(())
 }
 
+ fn count_leading_spaces(line: &str) -> usize {
+    line.chars()
+        .take_while(|c| c.is_whitespace() && *c == ' ')
+        .count()
+}
  
 // Search
 #[tokio::main]
@@ -204,14 +226,48 @@ async fn query_search(search: String, profile: &Config) -> Result<Vec<String>, B
     Ok(string_options)
 }
 
-fn profile_create(mut name: String) {
+fn remove_package (mut packageName: String, profile: &Config) -> io::Result<()> {
+    let file = File::open(&profile.nix.location)?;
+    let reader = BufReader::new(file);
+    let mut package_exists = false;
+
+    let mut lines_to_keep = Vec::new();
+
+    let pks_package_name = format!("pkgs.{}", packageName);
+    // Read through the file and collect lines that don't contain the target line
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim() == packageName || line.trim() == pks_package_name {
+            println!("Found it, removing the line.");
+            continue; // Skip this line
+            package_exists = true
+        }
+        lines_to_keep.push(line);
+    }
+    if package_exists == false {
+        println!("Cant find package {} in {}", packageName, &profile.nix.location);
+        println!("Nothing was removed");
+    }
+
+    // Write the remaining lines back to the file
+    let mut file = File::create(&profile.nix.location)?;
+    for line in lines_to_keep {
+        writeln!(file, "{}", line)?;
+    }
+
+    Ok(())    
+}
+
+fn profile_create(mut filename: String) {
     let source_file = "profile_configs/default.toml"; // clones the default.toml when creating a
                                                       // new config file
-    let filepath = String::from("profile_configs"); // todo! this sould be in the users .config
+    let configpath = String::from("profile_configs"); // todo! this sould be in the users .config
                                                     // currently in the local project location
-    name.push_str(".toml");
-    let name_filepath = Path::new(&filepath).join(name);
-    let entries = fs::copy(source_file, name_filepath);
+    if !filename.ends_with(".toml") {
+        filename.push_str(".toml");
+    }
+    let name_filepath = Path::new(&configpath).join(filename);
+
 }
 
 fn profile_list() {
@@ -220,5 +276,33 @@ fn profile_list() {
 
     for path in filepath {
         println!("Name: {}", path.unwrap().path().display())
+    }
+}
+
+fn profile_remove(mut filename: String) {
+    let configpath = String::from("profile_configs");
+    
+    // make is you cant delete the default profile
+    if filename == "default" || filename == "default.toml" {
+        panic!("You cant delete the default profile");
+    }
+    
+    // add .toml at the end of the file name if it doesnt have it already
+    if !filename.ends_with(".toml") {
+        filename.push_str(".toml");
+    }
+
+    // make the fullpath, config + filename
+    let fullpath = Path::new(&configpath).join(&filename); 
+    println!("fullpath: {:#?}", fullpath);
+
+    // check if profile exists
+    if fullpath.exists() {
+        match fs::remove_file(fullpath) {
+            Ok(_) => println!("File removed successfully."),
+            Err(e) => println!("Failed to remove file: {}", e),
+        }
+    } else {
+        println!("File does not exists");
     }
 }

@@ -4,39 +4,20 @@ adfasdfsdfsd
 adfasdfsdfsd
 feere
   environment.systemPackages = [
-  test
-  test
-  test
-  test
-  test
-  test
-  test
-  test
-  minecraft-server
-  blakeisrword
-  test
-  test
-  zen
-  
-  zen
+    pkgs.zena
+    pkgs.zen
+    pkgs.zenmonitor
+    pkgs.zen
 
   ];
 
-  environment.systemPackages = with pkgs; [
-  test
-  test
-  test
-  test
-  test
-  test
-  test
-  test
-  minecraft-server
-  blakeisrword
-  test
-  test
-  zen
+      environment.systemPackages = with pkgs; [
+        zena
+        zen
+        zenmonitor
+        zen
   
-  zen
   
   ]
+  test.firewall
+

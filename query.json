@@ -99,7 +99,7 @@
             "queries": [
               {
                 "multi_match": {
-                  "_name": "multi_match_test",
+                  "_name": "multi_match_zen",
                   "analyzer": "whitespace",
                   "auto_generate_synonyms_phrase_query": true,
                   "fields": [
@@ -117,7 +117,7 @@
                     "flake_name.*^0.3"
                   ],
                   "operator": "and",
-                  "query": "test",
+                  "query": "zen",
                   "type": "cross_fields"
                 }
               },
@@ -125,7 +125,7 @@
                 "wildcard": {
                   "package_attr_name": {
                     "case_insensitive": true,
-                    "value": "*test*"
+                    "value": "*zen*"
                   }
                 }
               }
