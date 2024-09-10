@@ -1,18 +1,18 @@
 mod args;
-
 use args::build_cli;
+
 use reqwest::Client;
 use serde_json::{json, Value};
+use serde::Deserialize;
 use std::error::Error;
 use std::fs;
 use std::fs::{OpenOptions, File};
-use std::io::{Read, Write, BufReader, BufRead};
 use std::io;
+use std::io::{Read, Write, BufReader, BufRead};
 use std::path::Path;
 use inquire::{error::InquireError, Select};
-use serde::Deserialize;
 use dialoguer::Confirm;
-use std::process::Command as OtherCommand;
+use std::process::Command as ExecCommand;
 
 // Structs for config.toml files
 #[derive(Deserialize, Debug)]
@@ -30,8 +30,8 @@ struct QueryConfig {
 #[derive(Deserialize, Debug)]
 struct NixConfig {
     location: String,
-    rebuildSwitch: bool,
-    rebuildCommand: String,
+    rebuild_switch: bool,
+    rebuild_command: String,
 }
 
 fn main() {
@@ -51,7 +51,10 @@ fn main() {
         let config: Config = toml::from_str(&config_content).expect("Unable to parse");
 
         if let Some(value) = sub_matches.get_one::<String>("search") {
-            query_search(value.to_string(), &config);
+            match query_search(value.to_string(), &config) { // run fn query_search
+                Ok(_) => {} 
+                Err(e) => eprintln!("Error occurred: {}", e),
+            }
         } 
         if let Some(value) = sub_matches.get_one::<String>("install") {
             install(value.to_string(), false, &config); // dont search for packages before install
@@ -59,8 +62,11 @@ fn main() {
         if let Some(value) = sub_matches.get_one::<String>("search-install") {
             install(value.to_string(), true, &config); // search for packages before install
         } 
-        if let Some(value) = sub_matches.get_one::<String>("remove-package") {
-            remove_package(value.to_string(), &config);
+        if let Some(value) = sub_matches.get_one::<String>("remove_package") {
+            match remove_package(value.to_string(), &config) { // run fn remove_package 
+                Ok(_) => {} 
+                Err(e) => eprintln!("Error occurred: {}", e),
+            }
         }
         if let Some(value) = sub_matches.get_one::<String>("create-profile") {
             profile_create(value.to_string());
@@ -97,10 +103,13 @@ fn install(search: String, search_before_install: bool, profile: &Config)  {
         answer = search;
     };
 
-    write_to_file(answer, &profile);
+    match write_to_file(answer, &profile) { // runs fn write_to_file
+        Ok(_) => {}
+        Err(e) => eprintln!("Error occurred: {}", e),
+    }
 
-    // rebuildSwitch
-    if profile.nix.rebuildSwitch == true {
+    // rebuild_switch
+    if profile.nix.rebuild_switch == true {
         let confirmation = Confirm::new()
             .with_prompt("Do you want to run nixos rebuild switch?")
             .interact()
@@ -109,10 +118,10 @@ fn install(search: String, search_before_install: bool, profile: &Config)  {
         if confirmation == true {
             println!("Running command defined in your profile");
             // Get the command arguments from the toml file
-            let args: &Vec<&str> = &profile.nix.rebuildCommand.split_whitespace().collect();
+            let args: &Vec<&str> = &profile.nix.rebuild_command.split_whitespace().collect();
 
             if let Some((command, arguments)) = args.split_first() {
-                let output = OtherCommand::new(command)
+                let output = ExecCommand::new(command)
                     .args(arguments)
                     .output()
                     .expect("Failed to execute command");
@@ -223,18 +232,18 @@ async fn query_search(search: String, profile: &Config) -> Result<Vec<String>, B
     Ok(string_options)
 }
 
-fn remove_package (packageName: String, profile: &Config) -> io::Result<()> {
+fn remove_package (package_name: String, profile: &Config) -> io::Result<()> {
     let file = File::open(&profile.nix.location)?;
     let reader = BufReader::new(file);
     let mut package_exists = false;
 
     let mut lines_to_keep = Vec::new();
 
-    let pks_package_name = format!("pkgs.{}", packageName);
+    let pks_package_name = format!("pkgs.{}", package_name);
     // Read through the file and collect lines that don't contain the target line
     for line in reader.lines() {
         let line = line?;
-        if line.trim() == packageName || line.trim() == pks_package_name {
+        if line.trim() == package_name || line.trim() == pks_package_name {
             println!("Found it, removing the line.");
             package_exists = true;
             continue; // Skip this line
@@ -242,7 +251,7 @@ fn remove_package (packageName: String, profile: &Config) -> io::Result<()> {
         lines_to_keep.push(line);
     }
     if package_exists == false {
-        println!("Cant find package {} in {}", packageName, &profile.nix.location);
+        println!("Cant find package {} in {}", package_name, &profile.nix.location);
         println!("Nothing was removed");
     }
 
@@ -266,11 +275,13 @@ fn profile_create(mut filename: String) {
     }
     let name_filepath = Path::new(&configpath).join(filename);// make the full filepath
 
+    // check if file already exists
     if name_filepath.exists() {
         panic!("File already exists");
-    } else {
-        fs::copy(source_file, name_filepath.clone()); // make file
-        println!("Profile created successfully at {:?}", name_filepath);
+    }
+    match fs::copy(source_file, name_filepath.clone()) { // make the new file
+        Ok(_) => println!("File made successfully at {:?}", name_filepath),
+        Err(e) => eprintln!("Failed to make file: {}", e),
     }
 }
 
