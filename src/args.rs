@@ -1,8 +1,9 @@
-use clap::{command, Arg, ArgGroup, Command};
+use clap::{command, Arg, Command, ArgAction, ColorChoice};
 
 pub fn build_cli() -> Command {
     command!()
         .about("wolfpack")
+        .color(ColorChoice::Always)
         .subcommand(
             Command::new("packages")
                 .arg(
@@ -55,14 +56,15 @@ pub fn build_cli() -> Command {
                         .long("list")
                         .help("List all profiles")
                         .exclusive(true)
-                )
-                .arg(
-                    Arg::new("remove-profile")
-                        .short('R')
-                        .long("removeProfile")
-                        .help("removes a profile")
-                        .exclusive(true)
-                )
-        )
-}
+                        .action(ArgAction::SetTrue)
+                    )
+                    .arg(
+                        Arg::new("remove-profile")
+                            .short('R')
+                            .long("removeProfile")
+                            .help("removes a profile")
+                            .exclusive(true)
+                    )
+            )
+    }
 

@@ -1,7 +1,6 @@
 mod args;
 
 use args::build_cli;
-use clap::{command, Arg, ArgGroup, Command, ValueHint};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::error::Error;
@@ -66,7 +65,7 @@ fn main() {
         if let Some(value) = sub_matches.get_one::<String>("create-profile") {
             profile_create(value.to_string());
         }
-        if let Some(value) = sub_matches.get_one::<String>("list-profiles") {
+        if sub_matches.get_one::<bool>("list-profiles") == Some(&true) {
             profile_list();
         } 
         if let Some(value) = sub_matches.get_one::<String>("remove-profile") {
@@ -142,9 +141,7 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
     file.read_to_string(&mut contents)?;
     let mut new_contents = String::new();
 
-    let mut line_number = 0;
     for line in contents.lines() {
-        line_number += 1;
         new_contents.push_str(line);
         new_contents.push('\n');
 
@@ -226,7 +223,7 @@ async fn query_search(search: String, profile: &Config) -> Result<Vec<String>, B
     Ok(string_options)
 }
 
-fn remove_package (mut packageName: String, profile: &Config) -> io::Result<()> {
+fn remove_package (packageName: String, profile: &Config) -> io::Result<()> {
     let file = File::open(&profile.nix.location)?;
     let reader = BufReader::new(file);
     let mut package_exists = false;
@@ -239,8 +236,8 @@ fn remove_package (mut packageName: String, profile: &Config) -> io::Result<()> 
         let line = line?;
         if line.trim() == packageName || line.trim() == pks_package_name {
             println!("Found it, removing the line.");
+            package_exists = true;
             continue; // Skip this line
-            package_exists = true
         }
         lines_to_keep.push(line);
     }
@@ -262,12 +259,19 @@ fn profile_create(mut filename: String) {
     let source_file = "profile_configs/default.toml"; // clones the default.toml when creating a
                                                       // new config file
     let configpath = String::from("profile_configs"); // todo! this sould be in the users .config
-                                                    // currently in the local project location
+                                                      // currently in the local project location
+    // the new filename doenst have .toml at the end, add it 
     if !filename.ends_with(".toml") {
         filename.push_str(".toml");
     }
-    let name_filepath = Path::new(&configpath).join(filename);
+    let name_filepath = Path::new(&configpath).join(filename);// make the full filepath
 
+    if name_filepath.exists() {
+        panic!("File already exists");
+    } else {
+        fs::copy(source_file, name_filepath.clone()); // make file
+        println!("Profile created successfully at {:?}", name_filepath);
+    }
 }
 
 fn profile_list() {
