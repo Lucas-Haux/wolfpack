@@ -1,19 +1,13 @@
-sdfsdfADfsd
-DAFADA
-adfasdfsdfsd
-adfasdfsdfsd
-feere
-  environment.systemPackages = [
-    pkgs.zena
-    pkgs.zenmonitor
+omesfesfes
+sfsefsefsef
+sfsefsefsef
+environment.systemPackages with pkgs {
+  test
 
-  ];
+}
+environment.systemPackages {
+  pkgs.test
 
-      environment.systemPackages = with pkgs; [
-        zena
-        zenmonitor
-  
-  
-  ]
-  test.firewall
-
+}
+ ewwerwer
+ werwer

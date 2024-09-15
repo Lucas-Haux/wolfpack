@@ -58,13 +58,21 @@ pub fn build_cli() -> Command {
                         .exclusive(true)
                         .action(ArgAction::SetTrue)
                     )
-                    .arg(
-                        Arg::new("remove-profile")
-                            .short('R')
-                            .long("removeProfile")
-                            .help("removes a profile")
-                            .exclusive(true)
-                    )
+                .arg(
+                    Arg::new("remove-profile")
+                        .short('R')
+                        .long("removeProfile")
+                        .help("removes a profile")
+                        .exclusive(true)
+                )
+                .arg(
+                    Arg::new("manual-location")
+                        .short('M')
+                        .long("manual-location")
+                        .help("select the nix confgi manualy")
+                        .conflicts_with_all(["profile-selection"])
+                        .requires_all(["install", "search-install"])
+                )
             )
     }
 

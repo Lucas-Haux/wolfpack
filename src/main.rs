@@ -48,7 +48,17 @@ fn main() {
         }
         let config_content = fs::read_to_string(profile.clone()).expect("Unable to read file");
         // Parse the content
-        let config: Config = toml::from_str(&config_content).expect("Unable to parse");
+        let mut config: Config = toml::from_str(&config_content).expect("Unable to parse");
+
+        if let Some(value) = sub_matches.get_one::<String>("manual-location") {
+            //manual_selection(value.to_string());
+            if Path::new(value).is_file(){
+                config.nix.location = value.to_string();
+            } else {
+                panic!("manual_selection is not a file");
+            } 
+        }
+
 
         if let Some(value) = sub_matches.get_one::<String>("search") {
             match query_search(value.to_string(), &config) { // run fn query_search
@@ -62,7 +72,7 @@ fn main() {
         if let Some(value) = sub_matches.get_one::<String>("search-install") {
             install(value.to_string(), true, &config); // search for packages before install
         } 
-        if let Some(value) = sub_matches.get_one::<String>("remove_package") {
+        if let Some(value) = sub_matches.get_one::<String>("remove-package") {
             match remove_package(value.to_string(), &config) { // run fn remove_package 
                 Ok(_) => {} 
                 Err(e) => eprintln!("Error occurred: {}", e),
@@ -142,6 +152,8 @@ fn install(search: String, search_before_install: bool, profile: &Config)  {
 
 // write to file
 fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
+        println!("location {}", profile.nix.location);
+
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -150,11 +162,14 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
     file.read_to_string(&mut contents)?;
     let mut new_contents = String::new();
 
+    let mut found_packages = false;
+
     for line in contents.lines() {
         new_contents.push_str(line);
         new_contents.push('\n');
 
         if line.contains("environment.systemPackages") {
+            found_packages = true;
             // get the amount of spaces on the environment.systemPackages line
             let leading_spaces = count_leading_spaces(line);
             let mut spaces = String::new();
@@ -165,6 +180,7 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
             }
             spaces.push_str("  "); // add two more spaces then environement.systemPackages line
 
+
             if line.contains("with pkgs") {
                 new_contents.push_str(&format!("{}{}\n", spaces, packagename));
             } else {
@@ -172,9 +188,14 @@ fn write_to_file(packagename: String, profile: &Config) -> std::io::Result<()> {
                                                                                      //it needs it
             }
         }
+
+    }
+    println!("packages: {}", found_packages);
+    if !found_packages {
+        panic!("no environment.systemPackages found on file {}", profile.nix.location);
     }
     // save to file
-    let mut file = OpenOptions::new().write(true).truncate(true).open("config.nix")?;
+    let mut file = OpenOptions::new().write(true).truncate(true).open(&profile.nix.location)?;
     file.write_all(new_contents.as_bytes())?;
 
     println!("done");
@@ -285,6 +306,7 @@ fn profile_create(mut filename: String) {
     }
 }
 
+
 fn profile_list() {
     let filepath = fs::read_dir("profile_configs").unwrap(); // todo! this hsould be in the users
                                                              // .config folder not project folder
@@ -311,13 +333,18 @@ fn profile_remove(mut filename: String) {
     let fullpath = Path::new(&configpath).join(&filename); 
     println!("fullpath: {:#?}", fullpath);
 
-    // check if profile exists
-    if fullpath.exists() {
-        match fs::remove_file(fullpath) {
-            Ok(_) => println!("File removed successfully."),
-            Err(e) => println!("Failed to remove file: {}", e),
-        }
-    } else {
-        println!("File does not exists");
-    }
 }
+//fn manual_selection (mut location: String) {
+//
+//    // check if profile exists
+//    if fullpath.exists() {
+//        match fs::remove_file(fullpath) {
+//            Ok(_) => println!("File removed successfully."),
+//            Err(e) => println!("Failed to remove file: {}", e),
+//        }
+//    } else {
+//        println!("File does not exists");
+//    }
+//}
+
+
